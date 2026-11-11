@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="LubriTech.API/LubriTech.API.csproj" />
+  <Project Path="LubriTech.Aplicacion/LubriTech.Aplicacion.csproj" />
+  <Project Path="LubriTech.Dominio/LubriTech.Dominio.csproj" />
+  <Project Path="LubriTech.Infraestructura/LubriTech.Infraestructura.csproj" />
+</Solution>

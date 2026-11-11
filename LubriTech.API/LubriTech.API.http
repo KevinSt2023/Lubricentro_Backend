@@ -1,0 +1,57 @@
+@host = http://localhost:9301
+@clave = Admin2026*
+
+### Latido
+GET {{host}}/api/salud
+
+### Login del personal (Admin de la empresa demo)
+# @name loginAdmin
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "email": "admin@lubritechdemo.pe", "password": "{{clave}}" }
+
+### Login del personal (Tecnico: sin ningun permiso de dinero)
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "email": "tecnico@lubritechdemo.pe", "password": "{{clave}}" }
+
+### Login del SuperAdmin (sin empresa)
+POST {{host}}/api/auth/login
+Content-Type: application/json
+
+{ "email": "superadmin@lubritech.pe", "password": "{{clave}}" }
+
+### Login del portal del cliente (otra audiencia)
+# @name loginCliente
+POST {{host}}/api/auth/cliente/login
+Content-Type: application/json
+
+{ "email": "cliente@demo.pe", "password": "{{clave}}" }
+
+### Perfil con permisos efectivos (rol interseccion plan)
+GET {{host}}/api/auth/perfil
+Authorization: Bearer {{loginAdmin.response.body.token}}
+
+### Prueba del aislamiento entre empresas
+GET {{host}}/api/salud/aislamiento
+Authorization: Bearer {{loginAdmin.response.body.token}}
+
+### Un token del portal NO entra al ERP (debe dar 403)
+GET {{host}}/api/salud/solo-erp
+Authorization: Bearer {{loginCliente.response.body.token}}
+
+### Un token del ERP NO entra al portal (debe dar 403)
+GET {{host}}/api/salud/solo-cliente
+Authorization: Bearer {{loginAdmin.response.body.token}}
+
+### Refresh rotativo
+POST {{host}}/api/auth/refrescar
+Content-Type: application/json
+
+{ "refreshToken": "{{loginAdmin.response.body.refreshToken}}" }
+
+### Cerrar todas las sesiones (sube sesion_version)
+POST {{host}}/api/auth/cerrar-todo
+Authorization: Bearer {{loginAdmin.response.body.token}}
