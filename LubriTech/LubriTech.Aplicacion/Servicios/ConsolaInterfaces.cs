@@ -13,6 +13,14 @@ public interface IEmpresaConsolaServicio
     Task<Pagina<EmpresaListaItem>> ListarAsync(
         ConsultaPaginada consulta, string? estado = null, int? planId = null, CancellationToken ct = default);
 
+    /// <summary>
+    /// Todos los usuarios de TODAS las empresas, paginado. Cruza empresas a
+    /// proposito (consulta con IgnoreQueryFilters); solo lo abre el rol 0.
+    /// </summary>
+    Task<Pagina<UsuarioGlobalItem>> ListarUsuariosAsync(
+        ConsultaPaginada consulta, int? empresaId = null, int? rolId = null, bool? activo = null,
+        CancellationToken ct = default);
+
     Task<Resultado<EmpresaDetalle>> VerAsync(int empresaId, CancellationToken ct = default);
 
     Task<Resultado<EmpresaCreada>> CrearAsync(CrearEmpresaPeticion peticion, CancellationToken ct = default);

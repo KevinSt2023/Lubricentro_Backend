@@ -49,15 +49,34 @@ promedio ponderado, stock por sede) está probado. El detalle está en
 **Lo que falta de esta fase:** las pantallas Angular. La salida de stock por consumo
 real se escribe desde la orden de trabajo (Fase 3); el motor ya existe y está probado.
 
-### Fase 3 · Órdenes de trabajo
+### Fase 3 · Órdenes de trabajo — **backend CERRADO el 2026-11-11**
 El corazón. Los 11 estados como catálogo, `orden_historial` inmutable, asignación a
 técnico y sede, checklist de inspección, observaciones, evidencias fotográficas con
 validación por bytes, repuestos consumidos moviendo inventario y kardex en la misma
 transacción.
 
-### Fase 4 · Cotizaciones y aprobaciones digitales
+**Se cerró con:** 13 candados de base nuevos + 57 comprobaciones contra la API, más el
+barrido de las fases 0, 1 y 2 (42 candados + 271 comprobaciones) otra vez en verde,
+cero 500, cuadres en cero. El flujo de los 11 estados, el consumo que mueve kardex y la
+evidencia validada por bytes están probados de punta a punta. Detalle en
+`05-FASE-3-ORDENES.md`.
+
+**Lo que falta de esta fase:** las pantallas Angular. La cotización versionada y la
+aprobación digital formal son la Fase 4.
+
+### Fase 4 · Cotizaciones y aprobaciones digitales — **backend CERRADO el 2026-11-12**
 Hallazgo del técnico → cotización versionada del asesor → decisión del cliente
 guardada inmutable. Sin fila de aprobación, el renglón adicional no pasa a ejecución.
+
+**Se cerró con:** 13 candados de base nuevos + 45 comprobaciones contra la API, más el
+barrido de las fases 0, 1, 2 y 3 (59 candados + 328 comprobaciones) otra vez en verde,
+cero 500, cuadres en cero. La versión correlativa, el borrador que se congela al enviar,
+la decisión inmutable del cliente como única puerta de aprobación y el renglón que no pasa
+a ejecución sin aprobación están probados de punta a punta. Detalle en
+`06-FASE-4-COTIZACIONES.md`.
+
+**Lo que falta de esta fase:** las pantallas (asesor en el ERP web; cliente en la app
+Flutter de la Fase 10).
 
 ### Fase 5 · Agenda y citas
 Agenda por sede y por técnico, cita registrada como primer estado de la orden,

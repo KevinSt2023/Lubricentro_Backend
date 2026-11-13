@@ -306,3 +306,27 @@ public class SaludEmpresa
     /// </summary>
     public List<string> Alertas { get; set; } = [];
 }
+
+/// <summary>
+/// Un usuario visto desde la consola del SuperAdmin: cruza empresas, por eso
+/// trae el nombre de la empresa a la que pertenece. El SuperAdmin aparece sin
+/// empresa (es de la plataforma).
+/// </summary>
+public class UsuarioGlobalItem
+{
+    public int Id { get; set; }
+    public string Nombre { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string? Dni { get; set; }
+    public string? Telefono { get; set; }
+    public int RolId { get; set; }
+    public string? Rol { get; set; }
+    public int? EmpresaId { get; set; }
+    public string? Empresa { get; set; }
+    public int? SedeId { get; set; }
+    public string? Sede { get; set; }
+    public bool Activo { get; set; }
+    public bool DebeCambiarClave { get; set; }
+    public DateTimeOffset? UltimoAcceso { get; set; }
+    public DateTimeOffset CreadoEn { get; set; }
+}

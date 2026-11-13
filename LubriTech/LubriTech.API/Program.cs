@@ -9,6 +9,7 @@ using LubriTech.Infraestructura.Datos;
 using LubriTech.Infraestructura.Seguridad;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Scalar.AspNetCore;
 using Serilog;
 
 var constructor = WebApplication.CreateBuilder(args);
@@ -99,7 +100,26 @@ constructor.Services.AddControllers(opciones =>
 });
 
 constructor.Services.AddSignalR();
-constructor.Services.AddOpenApi();
+
+// OpenAPI + una UI para probar la API en desarrollo. El transformador agrega
+// el esquema de seguridad Bearer para que la UI muestre el boton de autorizar
+// y mande el token JWT en cada llamada.
+constructor.Services.AddOpenApi(opciones =>
+{
+    opciones.AddDocumentTransformer((documento, _, _) =>
+    {
+        documento.Components ??= new();
+        documento.Components.SecuritySchemes["Bearer"] = new Microsoft.OpenApi.OpenApiSecurityScheme
+        {
+            Type = Microsoft.OpenApi.SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "JWT",
+            In = Microsoft.OpenApi.ParameterLocation.Header,
+            Description = "Pega el token que devuelve POST /api/auth/login (solo el token).",
+        };
+        return Task.CompletedTask;
+    });
+});
 
 // CORS solo para los origenes del ERP web en dev. Las apps nativas no usan CORS.
 var origenesWeb = constructor.Configuration.GetSection("Cors:Origenes").Get<string[]>()
@@ -127,7 +147,10 @@ app.UseMiddleware<ManejoDeErroresMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.MapOpenApi();                                  // el JSON en /openapi/v1.json
+    app.MapScalarApiReference(opciones => opciones     // la UI para probar en /scalar
+        .WithTitle("LubriTech API")
+        .WithTheme(ScalarTheme.Purple));
 }
 else
 {

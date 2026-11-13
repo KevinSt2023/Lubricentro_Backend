@@ -12,6 +12,11 @@
 **/appsettings.Development.json
 *.env
 
+# === Datos en tiempo de ejecucion ===
+# Evidencias subidas (fotos/documentos de ordenes): archivos del servidor,
+# no fuente. La metadata vive en la base; estos binarios no van al repo.
+**/App_Data/
+
 # === Varios ===
 Thumbs.db
 .DS_Store

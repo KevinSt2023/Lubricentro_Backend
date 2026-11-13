@@ -59,6 +59,13 @@ public static class Registro
         servicios.AddScoped<IServicioCatalogoServicio, ServicioCatalogoServicio>();
         servicios.AddScoped<IAlmacenServicio, AlmacenServicio>();
 
+        // Ordenes de trabajo (Fase 3).
+        servicios.AddScoped<IOrdenServicio, OrdenesServicio>();
+        servicios.AddSingleton<IEvidenciaAlmacen, EvidenciaAlmacenLocal>();
+
+        // Cotizaciones y aprobaciones (Fase 4).
+        servicios.AddScoped<ICotizacionServicio, CotizacionServicio>();
+
         servicios.AddScoped<SembradoInicial>();
 
         return servicios;

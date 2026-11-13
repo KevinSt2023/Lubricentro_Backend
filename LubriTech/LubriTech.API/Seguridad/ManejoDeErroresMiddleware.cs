@@ -24,30 +24,6 @@ public class ManejoDeErroresMiddleware(RequestDelegate siguiente, ILogger<Manejo
         {
             await siguiente(contexto);
         }
-        catch (PostgresException ex) when (ex.SqlState == CandadoDeLaBase)
-        {
-            log.LogWarning(ex, "Candado de la base: {Mensaje}", ex.MessageText);
-            await Responder(contexto, StatusCodes.Status409Conflict, ex.MessageText, "CANDADO");
-        }
-        catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.UniqueViolation)
-        {
-            log.LogWarning(ex, "Violacion de unicidad: {Restriccion}", ex.ConstraintName);
-            await Responder(contexto, StatusCodes.Status409Conflict,
-                "Ese registro ya existe.", "DUPLICADO");
-        }
-        catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.ExclusionViolation)
-        {
-            // Un periodo que se solapa con otro ya pagado (ex_suscripcion_sin_solape).
-            log.LogWarning(ex, "Violacion de exclusion: {Restriccion}", ex.ConstraintName);
-            await Responder(contexto, StatusCodes.Status409Conflict,
-                "Ese periodo se cruza con otro ya registrado.", "PERIODO_SOLAPADO");
-        }
-        catch (PostgresException ex) when (ex.SqlState == PostgresErrorCodes.CheckViolation)
-        {
-            log.LogWarning(ex, "Violacion de CHECK: {Restriccion}", ex.ConstraintName);
-            await Responder(contexto, StatusCodes.Status409Conflict,
-                "Los datos no cumplen una regla del sistema.", "REGLA");
-        }
         catch (OperationCanceledException) when (contexto.RequestAborted.IsCancellationRequested)
         {
             // El cliente corto la conexion. No es un error: no hay a quien responder.
@@ -55,12 +31,76 @@ public class ManejoDeErroresMiddleware(RequestDelegate siguiente, ILogger<Manejo
         }
         catch (Exception ex)
         {
+            // Cuando el candado salta a traves de EF (SaveChanges), la
+            // PostgresException viene ENVUELTA en una DbUpdateException. Por eso
+            // no basta con atrapar PostgresException: hay que buscarla en la
+            // cadena de InnerException. Si esta, es un 409 esperable; si no,
+            // es un 500 de verdad.
+            var pg = BuscarPostgres(ex);
+
+            if (pg is not null)
+            {
+                await ResponderPorCandado(contexto, pg);
+                return;
+            }
+
             log.LogError(ex, "Error no manejado en {Metodo} {Ruta}",
                 contexto.Request.Method, contexto.Request.Path);
 
             // Hacia afuera, nada de detalles internos.
             await Responder(contexto, StatusCodes.Status500InternalServerError,
                 "Ocurrio un error inesperado. Ya quedo registrado.", "ERROR_INTERNO");
+        }
+    }
+
+    /// <summary>Recorre la cadena de excepciones buscando la de Postgres.</summary>
+    private static PostgresException? BuscarPostgres(Exception? ex)
+    {
+        for (var actual = ex; actual is not null; actual = actual.InnerException)
+            if (actual is PostgresException pg) return pg;
+        return null;
+    }
+
+    private async Task ResponderPorCandado(HttpContext contexto, PostgresException pg)
+    {
+        switch (pg.SqlState)
+        {
+            case CandadoDeLaBase:   // P0001: nuestros RAISE con mensaje para una persona
+                log.LogWarning(pg, "Candado de la base: {Mensaje}", pg.MessageText);
+                await Responder(contexto, StatusCodes.Status409Conflict, pg.MessageText, "CANDADO");
+                break;
+
+            case PostgresErrorCodes.UniqueViolation:
+                log.LogWarning(pg, "Violacion de unicidad: {Restriccion}", pg.ConstraintName);
+                await Responder(contexto, StatusCodes.Status409Conflict, "Ese registro ya existe.", "DUPLICADO");
+                break;
+
+            case PostgresErrorCodes.ExclusionViolation:
+                log.LogWarning(pg, "Violacion de exclusion: {Restriccion}", pg.ConstraintName);
+                await Responder(contexto, StatusCodes.Status409Conflict,
+                    "Ese periodo se cruza con otro ya registrado.", "PERIODO_SOLAPADO");
+                break;
+
+            case PostgresErrorCodes.CheckViolation:
+                log.LogWarning(pg, "Violacion de CHECK: {Restriccion}", pg.ConstraintName);
+                await Responder(contexto, StatusCodes.Status409Conflict,
+                    "Los datos no cumplen una regla del sistema.", "REGLA");
+                break;
+
+            case PostgresErrorCodes.ForeignKeyViolation:
+                log.LogWarning(pg, "Violacion de clave foranea: {Restriccion}", pg.ConstraintName);
+                await Responder(contexto, StatusCodes.Status409Conflict,
+                    "Ese dato depende de otro que no existe o que no se puede quitar.", "REFERENCIA");
+                break;
+
+            default:
+                // Una PostgresException que no es un candado conocido SI es un
+                // error del sistema: 500, pero registrado como tal.
+                log.LogError(pg, "Error de base no esperado {Estado} en {Ruta}",
+                    pg.SqlState, contexto.Request.Path);
+                await Responder(contexto, StatusCodes.Status500InternalServerError,
+                    "Ocurrio un error inesperado. Ya quedo registrado.", "ERROR_INTERNO");
+                break;
         }
     }
 

@@ -52,6 +52,22 @@ public class LubriTechContexto(
     public DbSet<ProductoStock> ProductoStocks => Set<ProductoStock>();
     public DbSet<Kardex> Kardex => Set<Kardex>();
 
+    // Ordenes de trabajo (Fase 3)
+    public DbSet<OrdenEstado> OrdenEstados => Set<OrdenEstado>();
+    public DbSet<Orden> Ordenes => Set<Orden>();
+    public DbSet<OrdenHistorial> OrdenHistoriales => Set<OrdenHistorial>();
+    public DbSet<ChecklistItem> ChecklistItems => Set<ChecklistItem>();
+    public DbSet<OrdenChecklist> OrdenChecklists => Set<OrdenChecklist>();
+    public DbSet<OrdenServicio> OrdenServicios => Set<OrdenServicio>();
+    public DbSet<OrdenConsumo> OrdenConsumos => Set<OrdenConsumo>();
+    public DbSet<OrdenEvidencia> OrdenEvidencias => Set<OrdenEvidencia>();
+
+    // Cotizaciones y aprobaciones (Fase 4)
+    public DbSet<OrdenHallazgo> OrdenHallazgos => Set<OrdenHallazgo>();
+    public DbSet<Cotizacion> Cotizaciones => Set<Cotizacion>();
+    public DbSet<CotizacionRenglon> CotizacionRenglones => Set<CotizacionRenglon>();
+    public DbSet<CotizacionDecision> CotizacionDecisiones => Set<CotizacionDecision>();
+
     // Transversales
     public DbSet<Dispositivo> Dispositivos => Set<Dispositivo>();
     public DbSet<Bitacora> Bitacoras => Set<Bitacora>();
@@ -233,6 +249,121 @@ public class LubriTechContexto(
             // en un UPDATE (nunca hay UPDATE, pero por si acaso) ni confiarlo.
             e.Property(x => x.Saldo).ValueGeneratedOnAddOrUpdate()
                 .Metadata.SetAfterSaveBehavior(Microsoft.EntityFrameworkCore.Metadata.PropertySaveBehavior.Ignore);
+        });
+
+        // ------------------------------------------------------------------
+        // Ordenes de trabajo (Fase 3)
+        // ------------------------------------------------------------------
+        mb.Entity<OrdenEstado>(e =>
+        {
+            e.ToTable("orden_estado");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).ValueGeneratedNever();
+            e.HasIndex(x => x.Codigo).IsUnique();
+        });
+
+        mb.Entity<Orden>(e =>
+        {
+            e.ToTable("orden");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.TotalServicios).HasColumnType("numeric(12,2)");
+            e.Property(x => x.TotalRepuestos).HasColumnType("numeric(12,2)");
+            e.Property(x => x.Total).HasColumnType("numeric(12,2)");
+            // El numero lo asigna el trigger de la base: EF lo lee de vuelta.
+            e.Property(x => x.Numero).ValueGeneratedOnAddOrUpdate()
+                .Metadata.SetAfterSaveBehavior(Microsoft.EntityFrameworkCore.Metadata.PropertySaveBehavior.Ignore);
+            e.HasOne(x => x.Estado).WithMany().HasForeignKey(x => x.EstadoId);
+            e.HasOne(x => x.Sede).WithMany().HasForeignKey(x => x.SedeId);
+            e.HasOne(x => x.Cliente).WithMany().HasForeignKey(x => x.ClienteId);
+            e.HasOne(x => x.Vehiculo).WithMany().HasForeignKey(x => x.VehiculoId);
+            e.HasOne(x => x.Tecnico).WithMany().HasForeignKey(x => x.TecnicoId);
+            e.HasOne(x => x.Asesor).WithMany().HasForeignKey(x => x.AsesorId);
+        });
+
+        mb.Entity<OrdenHistorial>(e =>
+        {
+            e.ToTable("orden_historial");
+            e.HasKey(x => x.Id);
+            e.HasOne(x => x.EstadoAnterior).WithMany().HasForeignKey(x => x.EstadoAnteriorId);
+            e.HasOne(x => x.EstadoNuevo).WithMany().HasForeignKey(x => x.EstadoNuevoId);
+            e.HasOne(x => x.Usuario).WithMany().HasForeignKey(x => x.UsuarioId);
+        });
+
+        mb.Entity<ChecklistItem>(e =>
+        {
+            e.ToTable("checklist_item");
+            e.HasKey(x => x.Id);
+        });
+
+        mb.Entity<OrdenChecklist>(e =>
+        {
+            e.ToTable("orden_checklist");
+            e.HasKey(x => x.Id);
+        });
+
+        mb.Entity<OrdenServicio>(e =>
+        {
+            e.ToTable("orden_servicio");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Precio).HasColumnType("numeric(10,2)");
+            e.Property(x => x.Cantidad).HasColumnType("numeric(10,2)");
+        });
+
+        mb.Entity<OrdenConsumo>(e =>
+        {
+            e.ToTable("orden_consumo");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Cantidad).HasColumnType("numeric(12,3)");
+            e.Property(x => x.CostoUnitario).HasColumnType("numeric(12,4)");
+            e.Property(x => x.PrecioVenta).HasColumnType("numeric(10,2)");
+            e.HasOne(x => x.Producto).WithMany().HasForeignKey(x => x.ProductoId);
+        });
+
+        mb.Entity<OrdenEvidencia>(e =>
+        {
+            e.ToTable("orden_evidencia");
+            e.HasKey(x => x.Id);
+        });
+
+        // ------------------------------------------------------------------
+        // Cotizaciones y aprobaciones (Fase 4)
+        // ------------------------------------------------------------------
+        mb.Entity<OrdenHallazgo>(e =>
+        {
+            e.ToTable("orden_hallazgo");
+            e.HasKey(x => x.Id);
+            e.HasOne(x => x.Autor).WithMany().HasForeignKey(x => x.CreadoPor);
+        });
+
+        mb.Entity<Cotizacion>(e =>
+        {
+            e.ToTable("cotizacion");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Total).HasColumnType("numeric(12,2)");
+            // La version la asigna el trigger de la base: EF la lee de vuelta.
+            e.Property(x => x.Version).ValueGeneratedOnAddOrUpdate()
+                .Metadata.SetAfterSaveBehavior(Microsoft.EntityFrameworkCore.Metadata.PropertySaveBehavior.Ignore);
+            e.HasOne(x => x.Orden).WithMany().HasForeignKey(x => x.OrdenId);
+            e.HasOne(x => x.Autor).WithMany().HasForeignKey(x => x.CreadoPor);
+            e.HasOne(x => x.Decision).WithOne().HasForeignKey<CotizacionDecision>(d => d.CotizacionId);
+        });
+
+        mb.Entity<CotizacionRenglon>(e =>
+        {
+            e.ToTable("cotizacion_renglon");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Cantidad).HasColumnType("numeric(12,3)");
+            e.Property(x => x.PrecioUnitario).HasColumnType("numeric(10,2)");
+            // El subtotal es columna generada por la base: EF no lo escribe, lo lee.
+            e.Property(x => x.Subtotal).HasColumnType("numeric(12,2)")
+                .HasComputedColumnSql("round(cantidad * precio_unitario, 2)", stored: true);
+            e.HasOne<Cotizacion>().WithMany(c => c.Renglones).HasForeignKey(x => x.CotizacionId);
+        });
+
+        mb.Entity<CotizacionDecision>(e =>
+        {
+            e.ToTable("cotizacion_decision");
+            e.HasKey(x => x.Id);
         });
 
         // ------------------------------------------------------------------

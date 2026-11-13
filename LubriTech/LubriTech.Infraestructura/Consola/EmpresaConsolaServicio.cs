@@ -90,6 +90,55 @@ public class EmpresaConsolaServicio(
         return Pagina<EmpresaListaItem>.De(items, consulta, total);
     }
 
+    public async Task<Pagina<UsuarioGlobalItem>> ListarUsuariosAsync(
+        ConsultaPaginada consulta, int? empresaId = null, int? rolId = null, bool? activo = null,
+        CancellationToken ct = default)
+    {
+        // Cruza empresas: por eso IgnoreQueryFilters. Lo cierra [SoloSuperAdmin].
+        var origen = bd.Usuarios.IgnoreQueryFilters().AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(consulta.Buscar))
+        {
+            var texto = consulta.Buscar.Trim().ToLower();
+            origen = origen.Where(u =>
+                u.Nombres.ToLower().Contains(texto) ||
+                u.Apellidos.ToLower().Contains(texto) ||
+                u.Email.ToLower().Contains(texto) ||
+                (u.Dni != null && u.Dni.Contains(texto)));
+        }
+
+        if (empresaId.HasValue) origen = origen.Where(u => u.EmpresaId == empresaId.Value);
+        if (rolId.HasValue) origen = origen.Where(u => u.RolId == rolId.Value);
+        if (activo.HasValue) origen = origen.Where(u => u.Activo == activo.Value);
+
+        var total = await origen.CountAsync(ct);
+
+        var items = await origen
+            .OrderBy(u => u.EmpresaId).ThenBy(u => u.Apellidos).ThenBy(u => u.Nombres)
+            .Skip(consulta.Saltar).Take(consulta.Tamano)
+            .Select(u => new UsuarioGlobalItem
+            {
+                Id = u.Id,
+                Nombre = (u.Nombres + " " + u.Apellidos).Trim(),
+                Email = u.Email,
+                Dni = u.Dni,
+                Telefono = u.Telefono,
+                RolId = u.RolId,
+                Rol = u.Rol!.Nombre,
+                EmpresaId = u.EmpresaId,
+                Empresa = u.Empresa != null ? u.Empresa.NombreComercial : null,
+                SedeId = u.SedeId,
+                Sede = u.Sede != null ? u.Sede.Nombre : null,
+                Activo = u.Activo,
+                DebeCambiarClave = u.DebeCambiarClave,
+                UltimoAcceso = u.UltimoAcceso,
+                CreadoEn = u.CreadoEn
+            })
+            .ToListAsync(ct);
+
+        return Pagina<UsuarioGlobalItem>.De(items, consulta, total);
+    }
+
     private static void Completar(EmpresaListaItem item, DateOnly hoy)
     {
         item.DiasRestantes = item.ServicioHasta.DayNumber - hoy.DayNumber;
