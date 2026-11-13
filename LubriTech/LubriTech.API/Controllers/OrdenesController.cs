@@ -38,7 +38,8 @@ public class OrdenesController(
 
     /// <summary>
     /// Lista las ordenes. Quien tiene ORDENES.VER ve todas; quien solo tiene
-    /// ORDENES.VER_ASIGNADAS (un tecnico) ve unicamente las suyas.
+    /// ORDENES.VER_ASIGNADAS (un tecnico) ve las suyas MAS la cola sin asignar
+    /// de su sede, que puede tomar.
     /// </summary>
     [HttpGet]
     public async Task<IActionResult> Listar(
@@ -55,15 +56,42 @@ public class OrdenesController(
             return Respuestas.De(TipoFallo.Prohibido, "No tienes permiso para ver ordenes.", "SIN_PERMISO");
 
         int? soloDelTecnico = (!veTodas && veAsignadas) ? sesion.UsuarioId : null;
+        // El tecnico ve, ademas de las suyas, la cola de su sede sin asignar.
+        int? poolSedeTecnico = soloDelTecnico.HasValue ? sesion.SedeId : null;
 
         return Ok(await ordenes.ListarAsync(Empresa, consulta, estadoId, tecnicoId, sedeId,
-            clienteId, vehiculoId, soloDelTecnico, ct));
+            clienteId, vehiculoId, soloDelTecnico, poolSedeTecnico, ct));
     }
 
+    /// <summary>
+    /// El detalle. Con ORDENES.VER se abre cualquiera; con solo
+    /// ORDENES.VER_ASIGNADAS (un tecnico) solo la suya o una sin asignar de su sede.
+    /// </summary>
     [HttpGet("{id:long}")]
-    [RequierePermiso("ORDENES.VER")]
-    public async Task<IActionResult> Ver(long id, CancellationToken ct) =>
-        Respuestas.De(await ordenes.VerAsync(Empresa, id, await PuedeVerCostosAsync(), ct));
+    public async Task<IActionResult> Ver(long id, CancellationToken ct)
+    {
+        var rol = sesion.RolId;
+        var veTodas = sesion.EsSuperAdmin ||
+            (rol is int r && await permisos.TienePermisoAsync(Empresa, r, "ORDENES.VER"));
+        var veAsignadas = rol is int r2 && await permisos.TienePermisoAsync(Empresa, r2, "ORDENES.VER_ASIGNADAS");
+
+        if (!veTodas && !veAsignadas)
+            return Respuestas.De(TipoFallo.Prohibido, "No tienes permiso para ver ordenes.", "SIN_PERMISO");
+
+        var resultado = await ordenes.VerAsync(Empresa, id, await PuedeVerCostosAsync(), ct);
+
+        // El tecnico solo abre lo que puede tener en su tablero: lo suyo o la
+        // cola sin asignar de su sede. Cualquier otra, 404 (no se filtra que existe).
+        if (resultado.Exito && !veTodas && veAsignadas && resultado.Valor is { } d)
+        {
+            var suya = d.TecnicoId == sesion.UsuarioId
+                || (d.TecnicoId is null && d.SedeId == sesion.SedeId);
+            if (!suya)
+                return Respuestas.De(TipoFallo.NoEncontrado, "La orden no existe.", "NO_ENCONTRADO");
+        }
+
+        return Respuestas.De(resultado);
+    }
 
     // ------------------------------ Ciclo ----------------------------------
 
@@ -86,6 +114,15 @@ public class OrdenesController(
     [RequierePermiso("ORDENES.ASIGNAR")]
     public async Task<IActionResult> Asignar(long id, AsignarTecnicoPeticion peticion, CancellationToken ct) =>
         Respuestas.De(await ordenes.AsignarTecnicoAsync(Empresa, sesion.UsuarioId, id, peticion, await PuedeVerCostosAsync(), ct));
+
+    /// <summary>
+    /// El tecnico toma una orden de la cola de su sede (se auto-asigna). Solo
+    /// prospera si la orden esta sin asignar, es de su sede y no esta cerrada.
+    /// </summary>
+    [HttpPost("{id:long}/tomar")]
+    [RequierePermiso("ORDENES.VER_ASIGNADAS")]
+    public async Task<IActionResult> Tomar(long id, CancellationToken ct) =>
+        Respuestas.De(await ordenes.TomarAsync(Empresa, sesion.UsuarioId, sesion.SedeId, id, await PuedeVerCostosAsync(), ct));
 
     [HttpPost("{id:long}/anular")]
     [RequierePermiso("ORDENES.ANULAR")]

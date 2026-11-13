@@ -35,7 +35,7 @@ public class OrdenesServicio(
         int empresaId, ConsultaPaginada consulta,
         int? estadoId = null, int? tecnicoId = null, int? sedeId = null,
         long? clienteId = null, long? vehiculoId = null,
-        int? soloDelTecnico = null, CancellationToken ct = default)
+        int? soloDelTecnico = null, int? poolSedeTecnico = null, CancellationToken ct = default)
     {
         var q = bd.Ordenes.AsNoTracking().AsQueryable();
 
@@ -45,9 +45,18 @@ public class OrdenesServicio(
         if (clienteId.HasValue) q = q.Where(o => o.ClienteId == clienteId.Value);
         if (vehiculoId.HasValue) q = q.Where(o => o.VehiculoId == vehiculoId.Value);
 
-        // Quien solo puede ver lo suyo (ORDENES.VER_ASIGNADAS sin ORDENES.VER)
-        // ve unicamente las ordenes donde es el tecnico asignado.
-        if (soloDelTecnico.HasValue) q = q.Where(o => o.TecnicoId == soloDelTecnico.Value);
+        // El tecnico (ORDENES.VER_ASIGNADAS sin ORDENES.VER) ve sus ordenes
+        // asignadas y, ademas, la cola sin asignar de su sede (que puede tomar).
+        // Sin sede en el token, solo ve lo suyo.
+        if (soloDelTecnico.HasValue)
+        {
+            var tec = soloDelTecnico.Value;
+            if (poolSedeTecnico is int sedeTec)
+                q = q.Where(o => o.TecnicoId == tec
+                    || (o.TecnicoId == null && o.SedeId == sedeTec && !o.Estado!.EsFinal));
+            else
+                q = q.Where(o => o.TecnicoId == tec);
+        }
 
         if (!string.IsNullOrWhiteSpace(consulta.Buscar))
         {
@@ -235,6 +244,37 @@ public class OrdenesServicio(
 
         await bitacora.RegistrarAsync("ORDEN.ASIGNACION", "orden", ordenId.ToString(),
             new { orden.Numero, tecnicoId = peticion.TecnicoId }, ct);
+
+        return Resultado<OrdenDetalle>.Ok(await DetalleAsync((await CargarAsync(ordenId, ct))!, puedeVerCostos, ct));
+    }
+
+    public async Task<Resultado<OrdenDetalle>> TomarAsync(
+        int empresaId, int? usuarioId, int? sedeTecnico, long ordenId,
+        bool puedeVerCostos, CancellationToken ct = default)
+    {
+        if (usuarioId is null)
+            return Resultado<OrdenDetalle>.Error(TipoFallo.Prohibido, "La sesion no resuelve el usuario.", "SIN_USUARIO");
+
+        var orden = await bd.Ordenes.Include(o => o.Estado).FirstOrDefaultAsync(o => o.Id == ordenId, ct);
+        if (orden is null)
+            return Resultado<OrdenDetalle>.Error(TipoFallo.NoEncontrado, "La orden no existe.", "NO_ENCONTRADO");
+
+        if (orden.Estado!.EsFinal)
+            return Resultado<OrdenDetalle>.Error(TipoFallo.Conflicto, "Una orden cerrada no se toma.", "ORDEN_FINAL");
+
+        if (sedeTecnico is null || orden.SedeId != sedeTecnico.Value)
+            return Resultado<OrdenDetalle>.Error(TipoFallo.Prohibido, "Solo puedes tomar ordenes de tu sede.", "OTRA_SEDE");
+
+        if (orden.TecnicoId is not null)
+            return Resultado<OrdenDetalle>.Error(TipoFallo.Conflicto,
+                orden.TecnicoId == usuarioId.Value ? "Ya tienes esta orden." : "La orden ya tiene tecnico.",
+                "YA_ASIGNADA");
+
+        orden.TecnicoId = usuarioId.Value;
+        await bd.SaveChangesAsync(ct);
+
+        await bitacora.RegistrarAsync("ORDEN.TOMA", "orden", ordenId.ToString(),
+            new { orden.Numero, tecnicoId = usuarioId.Value }, ct);
 
         return Resultado<OrdenDetalle>.Ok(await DetalleAsync((await CargarAsync(ordenId, ct))!, puedeVerCostos, ct));
     }

@@ -20,7 +20,7 @@ public interface IOrdenServicio
         int empresaId, ConsultaPaginada consulta,
         int? estadoId = null, int? tecnicoId = null, int? sedeId = null,
         long? clienteId = null, long? vehiculoId = null,
-        int? soloDelTecnico = null, CancellationToken ct = default);
+        int? soloDelTecnico = null, int? poolSedeTecnico = null, CancellationToken ct = default);
 
     Task<Resultado<OrdenDetalle>> VerAsync(
         int empresaId, long ordenId, bool puedeVerCostos, CancellationToken ct = default);
@@ -38,6 +38,14 @@ public interface IOrdenServicio
 
     Task<Resultado<OrdenDetalle>> AsignarTecnicoAsync(
         int empresaId, int? usuarioId, long ordenId, AsignarTecnicoPeticion peticion,
+        bool puedeVerCostos, CancellationToken ct = default);
+
+    /// <summary>
+    /// El tecnico toma una orden sin asignar de su sede: se auto-asigna. Falla
+    /// si la orden ya tiene tecnico, es de otra sede o esta cerrada.
+    /// </summary>
+    Task<Resultado<OrdenDetalle>> TomarAsync(
+        int empresaId, int? usuarioId, int? sedeTecnico, long ordenId,
         bool puedeVerCostos, CancellationToken ct = default);
 
     Task<Resultado<OrdenDetalle>> AnularAsync(

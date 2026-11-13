@@ -276,18 +276,50 @@ if EV:
 
 
 # ===========================================================================
-print("\n=== 9. Asignacion y vista del tecnico (VER_ASIGNADAS) ===")
+print("\n=== 9. Asignacion, cola de la sede y toma del tecnico (VER_ASIGNADAS) ===")
 
 c, r = pedir("PUT", f"/ordenes/{ORD}/tecnico", TK, {"tecnicoId": TEC_ID})
 comprobar(c == 200 and r["tecnicoId"] == TEC_ID, "se asigna el tecnico", f"codigo {c}")
 
-if TK_TEC:
-    # El tecnico tiene VER_ASIGNADAS pero no VER: solo ve las suyas
+# Una orden nueva SIN asignar, en la sede del tecnico: es la "cola" que debe ver y poder tomar.
+c, pool = pedir("POST", "/ordenes", TK, {"clienteId": CLI, "vehiculoId": VEH, "sedeId": SEDE,
+    "estadoInicial": "RECIBIDO", "observaciones": "cola sin asignar"})
+POOL = pool["id"] if c == 200 else None
+comprobar(c == 200 and pool.get("tecnicoId") is None, "orden de cola creada sin tecnico", f"codigo {c}")
+
+if TK_TEC and POOL:
+    # El tecnico tiene VER_ASIGNADAS pero no VER: ve lo suyo + la cola sin asignar de su sede.
     c, pag = pedir("GET", "/ordenes", TK_TEC)
-    comprobar(c == 200 and all(o["tecnicoId"] == TEC_ID for o in pag.get("items", [])),
-              "el tecnico ve solo las ordenes que tiene asignadas", f"codigo {c}")
-    comprobar(c == 200 and any(o["id"] == ORD for o in pag.get("items", [])),
-              "la orden asignada le aparece al tecnico")
+    items = pag.get("items", []) if c == 200 else []
+    comprobar(c == 200 and all(o["tecnicoId"] in (TEC_ID, None) for o in items),
+              "el tecnico solo ve lo suyo o lo sin asignar de su sede", f"codigo {c}")
+    comprobar(any(o["id"] == ORD for o in items), "su orden asignada le aparece")
+    comprobar(any(o["id"] == POOL and o["tecnicoId"] is None for o in items),
+              "la orden sin asignar de su sede aparece en su cola")
+
+    # Puede abrir el detalle de una orden de su cola (antes de tomarla).
+    c, _ = pedir("GET", f"/ordenes/{POOL}", TK_TEC)
+    comprobar(c == 200, "el tecnico ve el detalle de una orden de su cola", f"codigo {c}")
+
+    # Toma la orden de la cola: se auto-asigna.
+    c, r = pedir("POST", f"/ordenes/{POOL}/tomar", TK_TEC)
+    comprobar(c == 200 and r.get("tecnicoId") == TEC_ID, "el tecnico toma la orden de la cola", f"codigo {c} {cod(r)}")
+
+    # Ya es suya: tomarla de nuevo se rechaza.
+    c, r = pedir("POST", f"/ordenes/{POOL}/tomar", TK_TEC)
+    comprobar(c == 409 and cod(r) == "YA_ASIGNADA", "no se vuelve a tomar una orden ya tomada", f"codigo {c} {cod(r)}")
+
+    # Ahora aparece a su nombre.
+    c, pag = pedir("GET", "/ordenes", TK_TEC)
+    comprobar(c == 200 and any(o["id"] == POOL and o["tecnicoId"] == TEC_ID for o in pag.get("items", [])),
+              "la orden tomada queda a su nombre")
+
+# Un tecnico de OTRA empresa no ve ni toma nuestra cola (aislamiento).
+c, tecvec = login("tecnico@lubritechvecino.pe")
+TK_TEC_VEC = tecvec.get("token") if c == 200 else None
+if TK_TEC_VEC and POOL:
+    c, r = pedir("POST", f"/ordenes/{POOL}/tomar", TK_TEC_VEC)
+    comprobar(c == 404, "un tecnico de otra empresa no toma nuestra orden (404)", f"codigo {c} {cod(r)}")
 
 
 # ===========================================================================
@@ -333,7 +365,7 @@ if TK_VEC and ORD:
     comprobar(c == 404, "la empresa vecina no ve la orden de la demo (404)", f"codigo {c}")
 
 for accion in ("ORDEN.ALTA", "ORDEN.ESTADO", "ORDEN.CONSUMO", "ORDEN.SERVICIO",
-               "ORDEN.CHECKLIST", "ORDEN.EVIDENCIA", "ORDEN.ASIGNACION", "ORDEN.ANULACION"):
+               "ORDEN.CHECKLIST", "ORDEN.EVIDENCIA", "ORDEN.ASIGNACION", "ORDEN.TOMA", "ORDEN.ANULACION"):
     n = un_valor(f"SELECT count(*) FROM bitacora WHERE accion='{accion}';", "0")
     comprobar(n != "0", f"la bitacora registro {accion}", f"{n} filas")
 
