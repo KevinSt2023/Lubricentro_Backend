@@ -23,6 +23,10 @@ public class OrdenesServicio(
     private const string Entregada = "ENTREGADA";
     private const string Anulada = "ANULADA";
 
+    // Al entregar, se propone el próximo mantenimiento: +5000 km y +6 meses.
+    private const int MantIntervaloKm = 5000;
+    private const int MantIntervaloMeses = 6;
+
     public Task<List<EstadoItem>> EstadosAsync(CancellationToken ct = default) =>
         bd.OrdenEstados.AsNoTracking().OrderBy(e => e.Secuencia)
           .Select(e => new EstadoItem
@@ -212,7 +216,21 @@ public class OrdenesServicio(
         var anteriorId = orden.EstadoId;
         orden.EstadoId = destino.Id;
         if (destino.Codigo == Recibido && orden.RecibidoEn is null) orden.RecibidoEn = Tiempo.Ahora;
-        if (destino.Codigo == Entregada) orden.EntregadoEn = Tiempo.Ahora;
+        if (destino.Codigo == Entregada)
+        {
+            orden.EntregadoEn = Tiempo.Ahora;
+
+            // El vehiculo entregado agenda su proximo mantenimiento: sobre el
+            // mayor km conocido + intervalo, y a 6 meses. El taller lo puede
+            // ajustar a mano despues; esto solo evita que quede en blanco.
+            var veh = await bd.Vehiculos.FirstOrDefaultAsync(v => v.Id == orden.VehiculoId, ct);
+            if (veh is not null)
+            {
+                var kmBase = Math.Max(veh.Kilometraje, orden.KilometrajeIngreso ?? 0);
+                veh.ProximoMantKm = kmBase + MantIntervaloKm;
+                veh.ProximoMantFecha = Tiempo.HoyLima().AddMonths(MantIntervaloMeses);
+            }
+        }
 
         await bd.SaveChangesAsync(ct);   // el trigger es el respaldo de la transicion
 

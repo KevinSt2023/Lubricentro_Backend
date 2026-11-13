@@ -29,6 +29,10 @@ public class Vehiculo : IEntidadEmpresa
     public string? Transmision { get; set; }
     public int Kilometraje { get; set; }
     public string? Notas { get; set; }
+    /// <summary>Cuándo toca el próximo mantenimiento (por calendario). Opcional.</summary>
+    public DateOnly? ProximoMantFecha { get; set; }
+    /// <summary>A qué kilometraje toca el próximo mantenimiento. Opcional.</summary>
+    public int? ProximoMantKm { get; set; }
     public bool Activo { get; set; } = true;
     public DateTimeOffset CreadoEn { get; set; }
     public DateTimeOffset? ActualizadoEn { get; set; }

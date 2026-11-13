@@ -177,6 +177,8 @@ public class VehiculoServicio(
         v.Transmision = Limpiar(p.Transmision);
         v.Kilometraje = p.Kilometraje;
         v.Notas = Limpiar(p.Notas);
+        v.ProximoMantFecha = p.ProximoMantFecha;
+        v.ProximoMantKm = p.ProximoMantKm;
     }
 
     private static string? Limpiar(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
@@ -194,6 +196,8 @@ public class VehiculoServicio(
         Tipo = v.Tipo,
         Color = v.Color,
         Kilometraje = v.Kilometraje,
+        ProximoMantFecha = v.ProximoMantFecha,
+        ProximoMantKm = v.ProximoMantKm,
         Activo = v.Activo
     };
 
@@ -212,6 +216,8 @@ public class VehiculoServicio(
             Tipo = v.Tipo,
             Color = v.Color,
             Kilometraje = v.Kilometraje,
+            ProximoMantFecha = v.ProximoMantFecha,
+            ProximoMantKm = v.ProximoMantKm,
             Activo = v.Activo,
             Vin = v.Vin,
             Motor = v.Motor,

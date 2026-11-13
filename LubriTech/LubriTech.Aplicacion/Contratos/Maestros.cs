@@ -118,6 +118,8 @@ public class VehiculoItem
     public string Tipo { get; set; } = "AUTO";
     public string? Color { get; set; }
     public int Kilometraje { get; set; }
+    public DateOnly? ProximoMantFecha { get; set; }
+    public int? ProximoMantKm { get; set; }
     public bool Activo { get; set; }
 }
 
@@ -146,6 +148,8 @@ public class GuardarVehiculoPeticion
     public string? Transmision { get; set; }
     public int Kilometraje { get; set; }
     public string? Notas { get; set; }
+    public DateOnly? ProximoMantFecha { get; set; }
+    public int? ProximoMantKm { get; set; }
 }
 
 public class KilometrajePeticion

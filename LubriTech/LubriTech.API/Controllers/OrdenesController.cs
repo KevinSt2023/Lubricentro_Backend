@@ -31,7 +31,7 @@ public class OrdenesController(
     // ----------------------------- Catalogo --------------------------------
 
     [HttpGet("estados")]
-    [RequierePermiso("ORDENES.VER")]
+    [RequierePermisoAlguno("ORDENES.VER", "ORDENES.VER_ASIGNADAS")]
     public async Task<IActionResult> Estados(CancellationToken ct) => Ok(await ordenes.EstadosAsync(ct));
 
     // ------------------------------ Listado --------------------------------
@@ -199,7 +199,7 @@ public class OrdenesController(
     }
 
     [HttpGet("{id:long}/evidencias/{evidenciaId:long}")]
-    [RequierePermiso("ORDENES.VER")]
+    [RequierePermisoAlguno("ORDENES.VER", "ORDENES.VER_ASIGNADAS")]
     public async Task<IActionResult> VerEvidencia(long id, long evidenciaId, CancellationToken ct)
     {
         var r = await ordenes.EvidenciaArchivoAsync(Empresa, id, evidenciaId, ct);
@@ -213,7 +213,7 @@ public class OrdenesController(
     // ----------------------- Plantilla de checklist ------------------------
 
     [HttpGet("checklist-plantilla")]
-    [RequierePermiso("ORDENES.VER")]
+    [RequierePermisoAlguno("ORDENES.VER", "ORDENES.VER_ASIGNADAS")]
     public async Task<IActionResult> Plantilla([FromQuery] bool soloActivos, CancellationToken ct) =>
         Ok(await ordenes.PlantillaAsync(Empresa, soloActivos, ct));
 

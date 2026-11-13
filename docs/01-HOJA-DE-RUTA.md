@@ -78,9 +78,32 @@ a ejecución sin aprobación están probados de punta a punta. Detalle en
 **Lo que falta de esta fase:** las pantallas (asesor en el ERP web; cliente en la app
 Flutter de la Fase 10).
 
-### Fase 5 · Agenda y citas
+### Fase 5 · Agenda y citas — **backend CERRADO el 2026-11-13**
 Agenda por sede y por técnico, cita registrada como primer estado de la orden,
 próximos mantenimientos por kilometraje y por fecha.
+
+Una cita **es** una orden en `CITA_REGISTRADA` con `fecha_cita` (no hay tabla
+aparte). `scripts/07_agenda.sql` agrega el candado (una cita exige fecha) y el
+índice del calendario. `AgendaController` (`/api/agenda`) se apoya en
+`IOrdenServicio` para no duplicar historial ni bitácora: listar (AGENDA.VER),
+agendar / reprogramar / recibir / cancelar (AGENDA.AGENDAR). Las fechas se
+guardan en UTC (timestamptz solo acepta UTC).
+
+**Se cerró con:** 1 candado de base + 25 comprobaciones contra la API, más el
+barrido de las fases 0–4 (núcleo 62, consola 135, maestros 74, órdenes 67,
+cotizaciones 45) otra vez en verde, cero 500.
+
+**Iteración 2 (próximos mantenimientos) — CERRADA el 2026-11-13.**
+`scripts/08_mantenimiento.sql` agrega `vehiculo.proximo_mant_fecha` y
+`proximo_mant_km` (con CHECK e índice parcial). Se fijan a mano en la ficha del
+vehículo o se proponen solos al entregar una orden (+5000 km / +6 meses).
+`GET /api/agenda/proximos-mantenimientos` lista los vencidos y por vencer (por
+fecha o por km) con teléfono para llamar al cliente. QA: 32 comprobaciones
+en `qa_agenda.py` + el auto-fijado en `qa_ordenes.py`, todo en verde.
+
+**Pantallas (CERRADAS el 2026-11-13):** calendario semanal por día (agendar,
+reprogramar, recibir, cancelar) y el panel de próximos mantenimientos con
+"Agendar" de un clic. Falta solo la vista del cliente en la app Flutter (Fase 10).
 
 ### Fase 6 · Caja y cobros
 Cobro de la orden, métodos de pago, comprobante, cierre de turno. Esta es la frontera

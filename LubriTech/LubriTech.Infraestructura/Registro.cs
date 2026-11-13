@@ -69,6 +69,9 @@ public static class Registro
         // Tablero operativo del taller.
         servicios.AddScoped<ITableroTallerServicio, TableroTallerServicio>();
 
+        // Agenda y citas (Fase 5).
+        servicios.AddScoped<IAgendaServicio, AgendaServicio>();
+
         servicios.AddScoped<SembradoInicial>();
 
         return servicios;

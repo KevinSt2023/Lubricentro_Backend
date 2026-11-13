@@ -58,6 +58,52 @@ public class RequierePermisoAttribute(string permiso) : Attribute, IAsyncAuthori
     }
 }
 
+/// <summary>
+/// Pasa si el usuario tiene AL MENOS UNO de los permisos. Para endpoints de
+/// lectura que sirven a varios roles: el catalogo de estados y la plantilla de
+/// checklist los usan tanto quien ve TODAS las ordenes (ORDENES.VER) como el
+/// tecnico que solo ve las suyas (ORDENES.VER_ASIGNADAS).
+/// </summary>
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method, AllowMultiple = false)]
+public class RequierePermisoAlgunoAttribute(params string[] permisos) : Attribute, IAsyncAuthorizationFilter
+{
+    public string[] Permisos { get; } = permisos;
+
+    public async Task OnAuthorizationAsync(AuthorizationFilterContext contexto)
+    {
+        var servicios = contexto.HttpContext.RequestServices;
+        var sesion = servicios.GetRequiredService<ISesionActual>();
+
+        if (!sesion.Autenticado)
+        {
+            contexto.Result = Respuestas.De(TipoFallo.NoAutenticado, "Necesitas iniciar sesion.", "SESION_INVALIDA");
+            return;
+        }
+
+        if (sesion.EsCliente)
+        {
+            contexto.Result = Respuestas.De(TipoFallo.Prohibido,
+                "Esta operacion no esta disponible para cuentas de cliente.", "AUDIENCIA");
+            return;
+        }
+
+        if (sesion.EsSuperAdmin) return;
+
+        if (sesion.EmpresaId <= 0 || sesion.RolId is null)
+        {
+            contexto.Result = Respuestas.De(TipoFallo.Prohibido, "La sesion no tiene empresa resuelta.", "SIN_EMPRESA");
+            return;
+        }
+
+        var permisos = servicios.GetRequiredService<IPermisoServicio>();
+        foreach (var p in Permisos)
+            if (await permisos.TienePermisoAsync(sesion.EmpresaId, sesion.RolId.Value, p))
+                return;
+
+        contexto.Result = Respuestas.De(TipoFallo.Prohibido, "No tienes permiso para esta operacion.", "SIN_PERMISO");
+    }
+}
+
 /// <summary>Consola del SaaS. Solo el rol 0.</summary>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
 public class SoloSuperAdminAttribute : Attribute, IAuthorizationFilter

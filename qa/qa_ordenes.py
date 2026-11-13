@@ -314,6 +314,15 @@ if TK_TEC and POOL:
     comprobar(c == 200 and any(o["id"] == POOL and o["tecnicoId"] == TEC_ID for o in pag.get("items", [])),
               "la orden tomada queda a su nombre")
 
+    # El tablero del tecnico se dibuja con el catalogo de estados y usa la
+    # plantilla de checklist: con solo VER_ASIGNADAS debe poder leer ambos.
+    c, est = pedir("GET", "/ordenes/estados", TK_TEC)
+    comprobar(c == 200 and isinstance(est, list) and len(est) == 11,
+              "el tecnico obtiene el catalogo de estados (su tablero)", f"codigo {c}")
+    c, pl = pedir("GET", "/ordenes/checklist-plantilla?soloActivos=true", TK_TEC)
+    comprobar(c == 200 and isinstance(pl, list),
+              "el tecnico obtiene la plantilla de checklist", f"codigo {c}")
+
 # Un tecnico de OTRA empresa no ve ni toma nuestra cola (aislamiento).
 c, tecvec = login("tecnico@lubritechvecino.pe")
 TK_TEC_VEC = tecvec.get("token") if c == 200 else None
@@ -328,6 +337,10 @@ print("\n=== 10. Cierre del ciclo hasta Entregada ===")
 for e in ["CONTROL_CALIDAD", "LISTA", "FACTURADA", "ENTREGADA"]:
     c, r = pedir("PUT", f"/ordenes/{ORD}/estado", TK, {"estado": e})
     comprobar(c == 200, f"avance a {e}", f"codigo {c} {cod(r)}")
+
+# Al entregar, el vehiculo agenda solo su proximo mantenimiento (Fase 5 it. 2)
+kmobj = un_valor(f"SELECT proximo_mant_km FROM vehiculo WHERE id={VEH};", "")
+comprobar(kmobj not in ("", "0"), "al entregar, el vehiculo agenda su proximo mantenimiento", f"km={kmobj}")
 
 # Entregada es final: no cambia mas
 c, r = pedir("PUT", f"/ordenes/{ORD}/estado", TK, {"estado": "CITA_REGISTRADA"})
