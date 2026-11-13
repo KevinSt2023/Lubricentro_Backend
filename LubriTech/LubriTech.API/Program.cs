@@ -108,7 +108,11 @@ constructor.Services.AddOpenApi(opciones =>
 {
     opciones.AddDocumentTransformer((documento, _, _) =>
     {
+        // En Microsoft.OpenApi v2 (la que usa .NET 10) ni Components ni el
+        // diccionario de esquemas se crean solos: hay que inicializarlos o
+        // indexar SecuritySchemes revienta con NullReferenceException.
         documento.Components ??= new();
+        documento.Components.SecuritySchemes ??= new Dictionary<string, Microsoft.OpenApi.IOpenApiSecurityScheme>();
         documento.Components.SecuritySchemes["Bearer"] = new Microsoft.OpenApi.OpenApiSecurityScheme
         {
             Type = Microsoft.OpenApi.SecuritySchemeType.Http,

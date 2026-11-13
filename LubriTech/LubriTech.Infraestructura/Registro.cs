@@ -66,6 +66,9 @@ public static class Registro
         // Cotizaciones y aprobaciones (Fase 4).
         servicios.AddScoped<ICotizacionServicio, CotizacionServicio>();
 
+        // Tablero operativo del taller.
+        servicios.AddScoped<ITableroTallerServicio, TableroTallerServicio>();
+
         servicios.AddScoped<SembradoInicial>();
 
         return servicios;

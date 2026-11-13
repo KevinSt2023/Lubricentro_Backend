@@ -24,10 +24,15 @@ public class ManejoDeErroresMiddleware(RequestDelegate siguiente, ILogger<Manejo
         {
             await siguiente(contexto);
         }
-        catch (OperationCanceledException) when (contexto.RequestAborted.IsCancellationRequested)
+        catch (OperationCanceledException)
         {
-            // El cliente corto la conexion. No es un error: no hay a quien responder.
-            log.LogDebug("Peticion cancelada por el cliente: {Ruta}", contexto.Request.Path);
+            // Casi siempre: el cliente corto la conexion (navego, recargo o el
+            // refresh se adelanto). No es un error y no hay a quien responder.
+            // Se atrapa SIN filtro `when` a proposito: con el filtro, el
+            // depurador de Visual Studio no puede predecir que queda manejada y
+            // se detiene en ella como si fuera un fallo. Sin filtro, VS ve que
+            // esta controlada y no interrumpe la ejecucion.
+            log.LogDebug("Peticion cancelada: {Ruta}", contexto.Request.Path);
         }
         catch (Exception ex)
         {
